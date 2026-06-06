@@ -1,0 +1,16 @@
+{
+  "name": "합격마스터 — 산업안전기사 기출",
+  "short_name": "합격마스터",
+  "description": "광고 없는 산업안전기사 기출 학습 — 간격반복·모의고사·AI 오답분석",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#ffffff",
+  "theme_color": "#007AFF",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
