@@ -2937,7 +2937,7 @@ body.dark-mode .wrong-compare-correct { background: #052E16; border-color: #1665
                         <span id="quizTag" class="tag-pill" style="display:none">태그</span>
                         <span id="quizSubject" class="subject-pill">과목</span>
                         <span id="quizDiffBadge" class="q-diff-badge" style="display:none"></span>
-                        <span id="modeStatusBadge" class="mode-pill" onclick="if(document.getElementById('modeStatusBadge').innerText.includes('플랜')) endPlanMode()" style="cursor:pointer"></span>
+                        <span id="modeStatusBadge" class="mode-pill" onclick="if(planModeActive) endPlanMode()" style="cursor:pointer"></span>
                         <div id="quizKeywords" class="cmeta-keywords" style="display:none"></div>
                         <!-- 기억강도 도트 (row2에서 이동) -->
                         <div class="mem-strength" id="memStrength" style="margin-left:6px">
@@ -3301,6 +3301,9 @@ body.dark-mode .wrong-compare-correct { background: #052E16; border-color: #1665
             <!-- 🎯 합격 전략 카드 (D-day · 합격예측 · 과락경고) -->
             <div id="passStrategyCard" class="pass-strategy-card" style="display:none"></div>
 
+            <!-- 📊 주간 학습 그래프 -->
+            <div id="weeklyChartCard" class="pass-strategy-card" style="display:none"></div>
+
             <!-- ④ 오늘 현황 카드 (스트릭 + 목표 + 통계 통합) -->
             <!-- 🎯 Smart Study Recommendation (v147) -->
             <div class="smart-rec" id="smartRecBox" style="display:none">
@@ -3522,6 +3525,12 @@ body.dark-mode .wrong-compare-correct { background: #052E16; border-color: #1665
                     <label style="font-size:0.87em;color:var(--text-sub);display:flex;align-items:center;gap:6px;cursor:pointer">
                         <input type="checkbox" id="reviewNotifToggle" onchange="toggleReviewNotif(this)" style="width:16px;height:16px;accent-color:var(--primary)">
                         🔔 복습 알림 <span style="font-size:0.8em;opacity:0.7">(앱 열 때 목표 미달 시)</span>
+                    </label>
+                </div>
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;padding:4px 0">
+                    <label style="font-size:0.87em;color:var(--text-sub);display:flex;align-items:center;gap:6px;cursor:pointer">
+                        <input type="checkbox" id="darkAutoToggle" onchange="toggleDarkAuto(this)" style="width:16px;height:16px;accent-color:var(--primary)">
+                        🌗 자동 다크모드 <span style="font-size:0.8em;opacity:0.7">(저녁 7시~아침 7시)</span>
                     </label>
                 </div>
             </div>
@@ -4016,28 +4025,6 @@ body.dark-mode .wrong-compare-correct { background: #052E16; border-color: #1665
         <hr style="border:0;border-top:1px solid var(--border);margin:18px 0">
         <h4 style="font-size:0.95em;margin-bottom:10px;color:var(--text)">📥 복원하기</h4>
         <button class="m-btn m-btn-default m-btn-full" onclick="document.getElementById('restoreInput').click()">📂 백업 파일 불러오기</button>
-    </div>
-</div>
-
-<!-- ===== 💎 PRO 페이월 모달 ===== -->
-<div id="hmPaywallModal" class="modal-overlay" onclick="if(event.target===this)closePaywall()" style="display:none">
-    <div class="modal-box" style="max-width:440px">
-        <div class="modal-header">
-            <h3 class="modal-title">💎 합격마스터 PRO</h3>
-            <button class="modal-close" onclick="closePaywall()">닫기</button>
-        </div>
-        <div id="hmPaywallCtx" style="text-align:center;font-weight:800;font-size:1.05em;margin:6px 0 12px;color:var(--primary)">PRO로 더 빠르게 합격하세요 💎</div>
-        <div style="font-size:0.8em;color:var(--text-sub);text-align:center;margin-bottom:14px;line-height:1.6">기출문제 풀이는 <b>계속 무료</b>예요.<br>아래 기능만 PRO로 열려요.</div>
-        <div id="hmFeatureList" style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px"></div>
-        <button onclick="hmBuyPro()" style="width:100%;padding:14px;background:var(--primary);color:#fff;border:none;border-radius:12px;font-size:1em;font-weight:800;cursor:pointer">PRO 시작하기 · <span id="hmPriceLabel">월 ₩3,900</span></button>
-        <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">
-            <div style="font-size:0.78em;color:var(--text-sub);margin-bottom:7px">이미 구매하셨나요? 라이선스 키 입력</div>
-            <div style="display:flex;gap:7px">
-                <input id="hmKeyInput" type="text" placeholder="HMPRO-XXXXX-XXXX" autocomplete="off" style="flex:1;padding:11px;border:1.5px solid var(--border);border-radius:10px;background:var(--bg);color:var(--text);font-size:0.85em">
-                <button onclick="hmSubmitKey()" style="padding:11px 16px;background:var(--success);color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;white-space:nowrap">활성화</button>
-            </div>
-            <div id="hmLicenseStatus" style="font-size:0.74em;color:var(--text-muted);margin-top:8px;text-align:center"></div>
-        </div>
     </div>
 </div>
 
@@ -4595,7 +4582,8 @@ let qTimerInterval = null, qTimerSeconds = 0;
 /* Auto-next */
 let autoNextEnabled = false;
 let autoNextTimeout = null, autoNextInterval = null;
-let planModeActive = false;  // 학습플랜 모드: 이미 푼 문제도 재도전 가능
+let planModeActive = false;
+let planBadgeText = null; // 플랜/코스 배지 텍스트 — updateUI가 매번 다시 그려도 유지  // 학습플랜 모드: 이미 푼 문제도 재도전 가능
 let searchScope = 'all';    // D: 검색 범위
 let qStartTime  = 0;        // E: 문제 시작 시각
 const AUTO_NEXT_DELAY = 2;
@@ -4623,154 +4611,6 @@ let sessionAnswered = 0;          // 세션 내 답한 문제 수 (진행바용)
 let saveDebounceTimer = null;     // 성능: localStorage 배치 저장 타이머
 let renderPending = false;        // 성능: 불필요 재렌더 방지 플래그
 let metacogStats = JSON.parse(localStorage.getItem('metacogStats_v160') || '{"sureRight":0,"sureWrong":0,"unsureRight":0,"unsureWrong":0,"guessRight":0,"guessWrong":0}');
-
-/* ============================================================
-   💎 합격마스터 PRO — 기능 게이팅 / 라이선스  (Model A: 기출 무료, 기능 유료)
-   결제 추상화 — 오프라인 체크섬 키 즉시작동 + Gumroad/Lemon Squeezy 라이선스 API 훅(이지님 계정 후)
-   ⚠️ 클라이언트 라이선스는 '정직한 사용자' 보호 수준 — 강한 보호는 서버 검증 필요
-============================================================ */
-const HM_PRO = {
-    PRICE_LABEL: '월 ₩3,900',
-    CHECKOUT_URL: '',           // 이지님: Lemon Squeezy 결제링크 (Product→Share→Checkout URL). 비면 "준비중"
-    LS: { enabled: false },     // 이지님: LS 스토어 연결 후 enabled:true → 라이선스 키 API 검증 활성화
-    KEY_PREFIX: 'HMPRO-',
-    KEY_SALT: 'hapgyeok-master-pro-2026',
-    FREE_MOCK_PER_DAY: 1,       // 무료: 하루 모의고사 1회
-    FEATURES: [
-        ['🤖','AI 오답분석','틀린 이유를 짚어주는 실시간 AI 튜터'],
-        ['📝','무제한 모의고사','실전 모드 · 과목별 배분 (무료는 하루 1회)'],
-        ['🎯','합격 예측','합격선 대비 내 위치 · 합격 확률 추세'],
-        ['☁️','클라우드 동기화','폰 ↔ PC 자동 — 어디서든 이어서'],
-        ['🚫','광고 없음','깔끔한 학습에 집중'],
-    ],
-};
-let hmLicense = (function(){ try{ return JSON.parse(localStorage.getItem('hmLicense_v1')||'null'); }catch(e){ return null; } })();
-let isPro = !!(hmLicense && hmLicense.pro);
-
-function _hmHash(s){
-    let h = 2166136261;
-    for(let i=0;i<s.length;i++){ h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
-    return (h>>>0).toString(36).toUpperCase().padStart(7,'0').slice(0,7);
-}
-function _hmValidateKey(key){
-    key = (key||'').trim().toUpperCase();
-    if(!key.startsWith(HM_PRO.KEY_PREFIX)) return false;
-    const parts = key.slice(HM_PRO.KEY_PREFIX.length).split('-');
-    if(parts.length < 2) return false;
-    const checksum = parts.pop();
-    const payload = parts.join('-');
-    if(payload.length < 4) return false;
-    return _hmHash(payload + HM_PRO.KEY_SALT) === checksum;
-}
-// 이지님용 키 생성: 브라우저 콘솔에서 hmGenerateKey('BUYER01') 실행 → 판매/배포용 키
-function hmGenerateKey(payload){
-    payload = (payload||('U'+Date.now().toString(36))).toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,10);
-    return HM_PRO.KEY_PREFIX + payload + '-' + _hmHash(payload + HM_PRO.KEY_SALT);
-}
-function hmSaveLicense(){
-    try{ localStorage.setItem('hmLicense_v1', JSON.stringify(hmLicense)); }catch(e){}
-    isPro = !!(hmLicense && hmLicense.pro);
-}
-async function activateLicense(key){
-    key = (key||'').trim();
-    if(!key) return { ok:false, msg:'라이선스 키를 입력해주세요.' };
-    // 1) Lemon Squeezy 라이선스 API (스토어 연결 시) — 라이선스 키 자체로 인증, 시크릿 불필요(클라이언트 안전)
-    if(HM_PRO.LS && HM_PRO.LS.enabled){
-        const r = await _hmLSActivate(key);
-        if(r.ok){
-            hmLicense = { pro:true, key:key.trim(), plan:'lemonsqueezy', instanceId:r.instanceId, activatedAt:Date.now() };
-            hmSaveLicense(); hmReflectProUI();
-            return { ok:true, msg:'🎉 PRO 활성화 완료! 모든 기능이 열렸어요.' };
-        }
-        // LS 실패 → 오프라인/수동 키도 시도(베타·지인 키 허용)
-    }
-    // 2) 오프라인 체크섬 키 (백엔드 없이 즉시 발급 — 초기 수동/베타 판매)
-    if(_hmValidateKey(key)){
-        hmLicense = { pro:true, key:key.trim().toUpperCase(), plan:'standard', activatedAt:Date.now() };
-        hmSaveLicense(); hmReflectProUI();
-        return { ok:true, msg:'🎉 PRO 활성화 완료! 모든 기능이 열렸어요.' };
-    }
-    return { ok:false, msg:'유효하지 않은 키예요. 구매 영수증의 키를 다시 확인해주세요.' };
-}
-// ── Lemon Squeezy License API (브라우저 직접 호출 — 라이선스 키로 인증) ──
-async function _hmLSActivate(key){
-    try{
-        const res = await fetch('https://api.lemonsqueezy.com/v1/licenses/activate', {
-            method:'POST', headers:{ 'Accept':'application/json','Content-Type':'application/x-www-form-urlencoded' },
-            body: new URLSearchParams({ license_key:key, instance_name:'hapgyeok-'+((navigator.platform||'web').slice(0,12)) })
-        });
-        const d = await res.json();
-        if(d && d.activated && d.instance) return { ok:true, instanceId:d.instance.id };
-        return { ok:false, msg:(d && d.error) || '활성화 실패' };
-    }catch(e){ return { ok:false, msg:'네트워크 오류' }; }
-}
-async function _hmLSValidate(key, instanceId){
-    try{
-        const res = await fetch('https://api.lemonsqueezy.com/v1/licenses/validate', {
-            method:'POST', headers:{ 'Accept':'application/json','Content-Type':'application/x-www-form-urlencoded' },
-            body: new URLSearchParams({ license_key:key, instance_id:instanceId })
-        });
-        const d = await res.json();
-        return !!(d && d.valid && d.license_key && d.license_key.status==='active');
-    }catch(e){ return true; }  // 오프라인/네트워크 오류 시 PRO 유지(관대)
-}
-// 앱 시작 시 LS 구독 상태 재확인 (만료·취소 반영)
-async function hmRevalidate(){
-    if(hmLicense && hmLicense.plan==='lemonsqueezy' && hmLicense.instanceId && HM_PRO.LS && HM_PRO.LS.enabled){
-        const ok = await _hmLSValidate(hmLicense.key, hmLicense.instanceId);
-        if(!ok) deactivatePro();
-    }
-}
-function deactivatePro(){ hmLicense=null; hmSaveLicense(); hmReflectProUI(); if(typeof showToast==='function') showToast('PRO를 해제했어요.'); }
-
-// 게이트: PRO 필요. true=통과, false=페이월
-function requirePro(featureName){ if(isPro) return true; openPaywall(featureName||''); return false; }
-// 무료 모의고사 일일 제한
-function hmCanMock(){
-    if(isPro) return true;
-    const today=(new Date()).toISOString().slice(0,10);
-    let rec; try{ rec=JSON.parse(localStorage.getItem('hmMockQuota_v1')||'{}'); }catch(e){ rec={}; }
-    return !(rec.date===today && (rec.count||0) >= HM_PRO.FREE_MOCK_PER_DAY);
-}
-function hmRecordMock(){
-    if(isPro) return;
-    const today=(new Date()).toISOString().slice(0,10);
-    let rec; try{ rec=JSON.parse(localStorage.getItem('hmMockQuota_v1')||'{}'); }catch(e){ rec={}; }
-    if(rec.date!==today) rec={date:today,count:0};
-    rec.count=(rec.count||0)+1;
-    localStorage.setItem('hmMockQuota_v1', JSON.stringify(rec));
-}
-function hmReflectProUI(){
-    document.querySelectorAll('.hm-pro-only').forEach(el=>{ el.style.display = isPro?'':'none'; });
-    document.querySelectorAll('.hm-free-only').forEach(el=>{ el.style.display = isPro?'none':''; });
-    const badge=document.getElementById('hmProBadge'); if(badge) badge.style.display = isPro?'inline-flex':'none';
-    const st=document.getElementById('hmLicenseStatus');
-    if(st) st.innerHTML = isPro ? '💎 <b>PRO</b> 활성화됨' : '무료 플랜';
-    try{ if(typeof renderPassStrategy==='function') renderPassStrategy(); }catch(e){}
-}
-function openPaywall(feature){
-    const m=document.getElementById('hmPaywallModal'); if(!m) return;
-    const c=document.getElementById('hmPaywallCtx');
-    if(c) c.textContent = feature ? (feature+' — PRO 기능이에요 💎') : 'PRO로 더 빠르게 합격하세요 💎';
-    const fl=document.getElementById('hmFeatureList');
-    if(fl && !fl.dataset.built){
-        fl.innerHTML = HM_PRO.FEATURES.map(f=>`<div style="display:flex;gap:10px;align-items:flex-start"><div style="font-size:1.15em;line-height:1.3">${f[0]}</div><div><div style="font-weight:700;font-size:0.88em">${f[1]}</div><div style="font-size:0.75em;color:var(--text-sub)">${f[2]}</div></div></div>`).join('');
-        fl.dataset.built='1';
-    }
-    const pl=document.getElementById('hmPriceLabel'); if(pl) pl.textContent=HM_PRO.PRICE_LABEL;
-    m.style.display='flex';
-}
-function closePaywall(){ const m=document.getElementById('hmPaywallModal'); if(m) m.style.display='none'; }
-function hmBuyPro(){
-    if(HM_PRO.CHECKOUT_URL){ window.open(HM_PRO.CHECKOUT_URL,'_blank'); }
-    else if(typeof showToast==='function'){ showToast('💳 결제가 곧 열려요! 키가 있으면 아래에 입력해 주세요.','warning'); }
-}
-async function hmSubmitKey(){
-    const inp=document.getElementById('hmKeyInput');
-    const r=await activateLicense(inp?inp.value:'');
-    if(typeof showToast==='function') showToast(r.msg, r.ok?'success':'warning');
-    if(r.ok && inp){ inp.value=''; closePaywall(); }
-}
 
 /* ============================================================
    KaTeX 수식 렌더링
@@ -4918,20 +4758,6 @@ window.onload = async function() {
             }
         }
     }
-    // 🆕 신규 사용자: 콘텐츠 비어있으면 무료 샘플 1회 자동 로드 (검증 빌드 — 산안기 2022-2회 100문항)
-    if((!bank || bank.length===0) && !localStorage.getItem('hmSampleLoaded_v1')){
-        try{
-            const _r = await fetch('sample-sananki.json', {cache:'no-store'});
-            if(_r.ok){
-                const _s = await _r.json();
-                if(Array.isArray(_s) && _s.length){
-                    bank = _s;
-                    try{ await idbSet('quizBank', bank); }catch(e){}
-                    localStorage.setItem('hmSampleLoaded_v1','1');
-                }
-            }
-        }catch(e){ console.warn('샘플 자동로드 실패:', e); }
-    }
     // 영구 저장 요청 (저장공간 부족 시 브라우저 자동삭제 방지)
     if(navigator.storage && navigator.storage.persist){ try{ navigator.storage.persist(); }catch(e){} }
     const savedStats = localStorage.getItem('userStats_v50');
@@ -4956,8 +4782,6 @@ window.onload = async function() {
     restoreSessionState();
 
     applyFilter(); updateUI(); updateStatsUI(); updateGoalUI(); updateBadges();
-    hmReflectProUI(); // 💎 PRO 상태 UI 반영 (배지·업그레이드 칩·합격예측)
-    hmRevalidate();   // LS 구독 만료·취소 반영 (스토어 연결 시)
     initConfetti(); initSwipe();
 
     // V161: 복원된 필터 칩 UI 동기화
@@ -5015,6 +4839,10 @@ window.onload = async function() {
 
     // Ver.80 inits
     darkMode = localStorage.getItem('darkMode_v80') === 'true';
+    // 🌗 자동 다크모드: 켜져 있으면 시간(19시~7시)으로 결정 + 켜둔 동안에도 재평가(화면 복귀·매분)
+    if(localStorage.getItem('darkModeAuto')==='on'){ const _h=new Date().getHours(); darkMode=(_h>=19||_h<7); localStorage.setItem('darkMode_v80', String(darkMode)); }
+    document.addEventListener('visibilitychange', function(){ if(document.visibilityState==='visible' && typeof applyAutoDark==='function') applyAutoDark(); });
+    setInterval(function(){ if(typeof applyAutoDark==='function') applyAutoDark(); }, 60000);
     interleaveMode = localStorage.getItem('interleaveMode_v80') === 'true';
     if(darkMode) { document.body.classList.add('dark-mode'); document.getElementById('darkToggleBtn').innerText='☀️'; }
     initFontSize();
@@ -5265,7 +5093,8 @@ function updateUI() {
     // V161: 필터/선택 상태 저장
     saveSessionState();
     const modeBadge = document.getElementById('modeStatusBadge');
-    if(currentFilter==='wrong'){ modeBadge.innerText='오답노트'; modeBadge.style.cssText='display:inline-block;background:var(--danger-light);color:var(--danger);padding:3px 7px;border-radius:7px;font-size:0.72em;font-weight:700'; }
+    if(planModeActive && planBadgeText){ modeBadge.innerText=planBadgeText; modeBadge.style.cssText='display:inline-block;background:var(--primary);color:white;padding:3px 8px;border-radius:7px;font-size:0.72em;font-weight:700;cursor:pointer'; }
+    else if(currentFilter==='wrong'){ modeBadge.innerText='오답노트'; modeBadge.style.cssText='display:inline-block;background:var(--danger-light);color:var(--danger);padding:3px 7px;border-radius:7px;font-size:0.72em;font-weight:700'; }
     else if(currentFilter==='retry'){ modeBadge.innerText='🔄 재도전'; modeBadge.style.cssText='display:inline-block;background:var(--danger);color:white;padding:3px 7px;border-radius:7px;font-size:0.72em;font-weight:700'; }
     else if(currentFilter==='unanswered'){ modeBadge.innerText='✏️ 안 푼 문제'; modeBadge.style.cssText='display:inline-block;background:#F0FDF4;color:#15803D;padding:3px 7px;border-radius:7px;font-size:0.72em;font-weight:700'; }
     else if(currentFilter==='unread'){ modeBadge.innerText='👁 안읽음'; modeBadge.style.cssText='display:inline-block;background:var(--primary-light);color:var(--primary);padding:3px 7px;border-radius:7px;font-size:0.72em;font-weight:700'; }
@@ -5692,8 +5521,8 @@ function toggleShuffle() {
 }
 
 function toggleAITutor() {
-    if(!isAIMode && !requirePro('AI 오답분석')) return;  // 켤 때 PRO 체크
     const apiKey = localStorage.getItem('claudeApiKey');
+    if(!isAIMode && !requirePro('AI 해설·오답분석')) return;  /* Model A 게이트 */
     isAIMode=!isAIMode;
     document.getElementById('btnAiTutor').classList.toggle('active', isAIMode);
     document.getElementById('aiStatusBadge').style.display=isAIMode?'inline-block':'none';
@@ -5732,50 +5561,24 @@ function handleAutoAiToggle() {
     showToast(enabled ? '🔬 오답 시 자동 AI 해설 ON' : '🔬 오답 시 자동 AI 해설 OFF');
 }
 
-// ====== Claude AI 기능 (PRO 전용 — 사용자 Anthropic 키 직접 호출) ======
-async function callClaudeAI(q) {
-    const apiKey = localStorage.getItem('claudeApiKey');
-    if(!apiKey || !q) return null;
-    const prompt = `당신은 국가기술자격(산업안전기사 등) 학습을 돕는 친절한 한국어 튜터입니다.\n아래 문제의 정답이 왜 맞는지, 학생이 헷갈리기 쉬운 함정은 무엇인지 3~4문장으로 쉽게 설명하고, 마지막 줄에 "암기팁:"으로 한 줄 팁을 주세요.\n\n[문제] ${q.question}\n[보기] ${(q.options||[]).join(' / ')}\n[정답] ${q.answer}\n${q.original_explanation?('[참고 해설] '+q.original_explanation):''}`;
-    try {
-        const res = await fetch('https://api.anthropic.com/v1/messages', {
-            method:'POST',
-            headers:{ 'content-type':'application/json', 'x-api-key':apiKey, 'anthropic-version':'2023-06-01', 'anthropic-dangerous-direct-browser-access':'true' },
-            body: JSON.stringify({ model:'claude-3-5-haiku-latest', max_tokens:600, messages:[{role:'user', content:prompt}] })
-        });
-        if(!res.ok) { console.warn('AI 응답 오류:', res.status); return null; }
-        const data = await res.json();
-        return (data.content && data.content[0] && data.content[0].text) || null;
-    } catch(e){ console.warn('AI 호출 실패:', e); return null; }
-}
+// ====== Claude AI 기능 (Lite: 비활성화) ======
+async function callClaudeAI() { return null; }
 
 async function fetchAndDisplayAiExplanation(q) {
-    if(!isPro || !q) return;                       // PRO 전용
-    const el = document.getElementById('quizTipText');
-    if(!el) return;
-    if(!localStorage.getItem('claudeApiKey')){
-        el.innerHTML = '🔑 실시간 AI 해설을 켜려면 <b>설정 → Claude API 키</b>를 입력하세요. (PRO 활성화됨)';
-        return;
-    }
-    const prev = el.innerHTML;
-    el.innerHTML = '🤖 AI가 해설을 작성 중…';
-    const text = await callClaudeAI(q);
-    el.innerHTML = text ? wrapBareLaTeX(text).replace(/\n/g,'<br>') : prev;
+    // Lite: AI 기능 비활성화
+    return;
 }
-
-function initClaudeApiKeyUI() {
-    const st = document.getElementById('apiKeyStatus');
-    if(st){
-        const has = !!localStorage.getItem('claudeApiKey');
-        st.innerHTML = has ? '🔐 API 키가 설정되어 있습니다. 새로 입력하면 덮어씁니다.' : 'Anthropic 키를 입력하면 실시간 AI 해설이 켜집니다 (PRO).';
-        st.style.color = 'var(--text-muted)';
-    }
-}
-function handleAutoAiToggle() {
-    const t = document.getElementById('autoAiOnWrongToggle');
-    localStorage.setItem('autoAiOnWrong', t ? t.checked : false);
-    if(typeof showToast==='function') showToast((t&&t.checked) ? '🔬 오답 시 자동 AI 해설 ON' : '🔬 오답 시 자동 AI 해설 OFF');
-}
+// ====== Lite: 아래 원본 AI 코드는 주석 처리됨 ======
+/*
+    aiSection.style.display = 'block';
+    loadingEl.style.display = 'block';
+    tipEl.style.opacity = '0.4';
+    ... (원본 AI 코드 생략)
+*/
+// ====== Lite: AI 관련 함수들 비활성화 ======
+function initClaudeApiKeyUI() { /* Lite */ }
+function saveClaudeApiKey() { /* Lite */ }
+function handleAutoAiToggle() { /* Lite */ }
 
 function handleAutoNextToggle() {
     autoNextEnabled = document.getElementById('autoNextToggle').checked;
@@ -5786,6 +5589,7 @@ function handleAutoNextToggle() {
 function endPlanMode() {
     if(!planModeActive) return;
     planModeActive = false;
+    planBadgeText = null;
     const badge = document.getElementById('modeStatusBadge');
     if(badge) { badge.innerText = ''; badge.style.display = 'none'; }
     showToast('📋 학습플랜 모드 종료');
@@ -6550,6 +6354,9 @@ function handleGlobalKeydown(e) {
     if(['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName)) return;
     if(document.querySelector('.modal-overlay[style*="flex"]')) return;
     if(document.querySelector('.ios-confirm-overlay.show')) return;
+    // 단축키 도움말이 떠 있으면 퀴즈 키 차단 + Esc/Enter/?로 닫기
+    const _sh=document.getElementById('shortcutHelpOverlay');
+    if(_sh){ if(e.key==='Escape'||e.key==='?'||e.key==='Enter'){ e.preventDefault(); _sh.remove(); } return; }
     switch(e.key){
         case 'ArrowRight': moveIndex(1); break;
         case 'ArrowLeft':  moveIndex(-1); break;
@@ -6564,6 +6371,7 @@ function handleGlobalKeydown(e) {
         case '4': selectOptionByKeyboard(3); break;
         case 'b': case 'B': toggleBookmark(); break;
         case 'Escape': cancelAutoNext(); break;
+        case '?': if(typeof showShortcutHelp==='function') showShortcutHelp(); break;
     }
 }
 function selectOptionByKeyboard(idx) {
@@ -8064,6 +7872,7 @@ function startPlan(type) {
         // 배지 표시
         const planLabels = {review:'📅 복습', wrong:'❌ 오답 재도전', unread:'👁 새 문제', weak:'⚠️ 취약 과목'};
         const badge = document.getElementById('modeStatusBadge');
+        planBadgeText = (planLabels[type]||'📋 플랜') + ' ' + filteredIndices.length + '문제';
         if(badge) {
             badge.innerText = (planLabels[type]||'📋 플랜') + ' ' + filteredIndices.length + '문제';
             badge.style.cssText = 'display:inline-block;background:var(--primary);color:white;padding:3px 8px;border-radius:7px;font-size:0.72em;font-weight:700;cursor:pointer';
@@ -8153,6 +7962,7 @@ function switchSettingsTab(tab) {
     });
     if(tab === 'data') { renderWorkbookManager(); renderDataSafety(); }
     if(tab === 'study') renderLearningModes();
+    if(tab === 'stats') { if(typeof renderPassStrategy==='function') renderPassStrategy(); if(typeof renderWeeklyChart==='function') renderWeeklyChart(); }
 }
 
 
@@ -8392,7 +8202,6 @@ let fbSaveTimer = null; // debounce 타이머
 
 // ── 구글 로그인 ──
 function fbSignIn() {
-    if(!requirePro('클라우드 동기화')) return;
     const provider = new firebase.auth.GoogleAuthProvider();
     fbAuth.signInWithPopup(provider).catch(e => {
         showToast('❌ 로그인 실패: ' + e.message, 'warning');
@@ -8660,7 +8469,7 @@ function initFontSize() {
     if(slider) slider.value = saved;
     applyFontSize(saved);
 }
-function toggleDarkMode() {
+function toggleDarkMode(fromAuto) {
     darkMode = !darkMode;
     document.body.classList.toggle('dark-mode', darkMode);
     const btn = document.getElementById('darkToggleBtn');
@@ -8668,6 +8477,19 @@ function toggleDarkMode() {
     const modeBtn = document.getElementById('darkModeBtn');
     if(modeBtn) modeBtn.querySelector('.s-btn-icon').innerText = darkMode ? '☀️' : '🌙';
     localStorage.setItem('darkMode_v80', darkMode);
+    // 사용자가 직접 토글하면 자동 다크모드 해제 (자동 전환과 싸우지 않게)
+    if(!fromAuto && localStorage.getItem('darkModeAuto')==='on'){
+        localStorage.setItem('darkModeAuto','off');
+        const da=document.getElementById('darkAutoToggle'); if(da) da.checked=false;
+        showToast('수동 변경 — 자동 다크모드 해제');
+    }
+}
+
+// 자동 다크모드 재평가 (부팅·화면 복귀·매분)
+function applyAutoDark(){
+    if(localStorage.getItem('darkModeAuto')!=='on') return;
+    const h=new Date().getHours(); const want=(h>=19||h<7);
+    if(want!==darkMode) toggleDarkMode(true);
 }
 
 /* ============================================================
@@ -9626,7 +9448,8 @@ function applyMockTotalDistribute() {
 }
 
 function startMockExam() {
-    if(!hmCanMock()){ openPaywall('무제한 모의고사'); return; }  // 무료: 하루 1회
+    if(!hmCanMock()){ openPaywall('무제한 모의고사'); return; }  /* Model A: 무료 하루 1회 */
+    hmRecordMock();
     const mockWrongOnly=document.getElementById('mockMockWrongOnly')?.checked||false;
     const mockUnansweredOnly=document.getElementById('mockMockUnansweredOnly')?.checked||false;
     const bookmarkOnly=document.getElementById('mockBookmarkOnly')?.checked||false;
@@ -9762,7 +9585,6 @@ function startMockExam() {
         delete q._mockTimeSpent;
     });
 
-    hmRecordMock(); // 무료 모의고사 일일 카운트
     mockQuestions=pool;
     mockIdx=0; mockCorrect=0; mockWrong=0; mockAnswered=false;
     mockIsRetryMode=false;
@@ -12193,6 +12015,7 @@ function checkReviewReminder(){
 }
 window.addEventListener('load', function(){
     var t=document.getElementById('reviewNotifToggle'); if(t) t.checked=localStorage.getItem('reviewNotif')==='on';
+    var da=document.getElementById('darkAutoToggle'); if(da) da.checked=localStorage.getItem('darkModeAuto')==='on';
     setTimeout(function(){ if(typeof checkReviewReminder==='function') checkReviewReminder(); }, 3500);
 });
 
@@ -12206,6 +12029,17 @@ function setExamDate(v){
     renderPassStrategy();
     if(typeof renderTodayQuotaBar==='function') renderTodayQuotaBar();
 }
+// 자격증별 회독 목표 (전체 문제를 N번 푸는 목표)
+function reviewGoalKey(){
+    return (typeof activeField!=='undefined' && activeField && activeField!=='all') ? ('reviewGoal_'+activeField) : 'reviewGoal_v1';
+}
+function getReviewGoal(){ return Math.max(1, parseInt(localStorage.getItem(reviewGoalKey())||'1')); }
+function setReviewGoal(v){
+    const n=Math.max(1, Math.min(20, parseInt(v)||1));
+    localStorage.setItem(reviewGoalKey(), String(n));
+    renderPassStrategy();
+    if(typeof renderTodayQuotaBar==='function') renderTodayQuotaBar();
+}
 
 // ── 🎯 오늘 학습 진행: D-day 권장량 vs 오늘 푼 수 (문제 화면 표시용) ──
 function getTodayQuota(){
@@ -12215,10 +12049,40 @@ function getTodayQuota(){
     if(dday<=0) return null;
     const _af=(typeof activeField!=='undefined')?activeField:'all';
     const visible=q=>activeTags.has(q.tag||'기타')&&activeSubjects.has(q.subject||'미분류(공통)')&&(_af==='all'||(fieldMap[q.tag||'기타']||getAutoField(q.tag||'기타'))===_af);
-    const remain=bank.filter(q=>visible(q)&&(!q.my_status||q.my_status==='wrong'||(typeof isSRDue==='function'&&isSRDue(q)))).length;
-    const perDay=Math.max(1, Math.ceil(remain/dday));
+    const vBank=bank.filter(visible);
+    const total=vBank.length;
+    if(!total) return null;
+    const cumSolved=vBank.reduce((s,q)=>s+(q.solve_count||0),0); // 누적 풀이 횟수
+    const unsolved=vBank.filter(q=>!q.my_status).length;          // 한 번도 안 푼 문제
+    const reviewGoal=getReviewGoal();
+    const target=total*reviewGoal;                               // 목표 = 전체 × 회독
+    const remainToSolve=Math.max(0, target-cumSolved);
+    const perDay=Math.max(1, Math.ceil(remainToSolve/dday));      // 못한 날 누적↛·일수↓ → 다음날 자동 증가
     const solved = (_af==='all') ? (dailySolved||0) : (dailySolvedByField[_af]||0);
-    return {dday, perDay, solved, left:Math.max(0,perDay-solved), done:solved>=perDay};
+    const unsolvedPerDay=Math.max(1, Math.ceil(unsolved/dday));   // 처음 1회독 페이스
+    const progressPct=target>0?Math.min(100,Math.round(cumSolved/target*100)):0;
+    const curRound=Math.min(reviewGoal, Math.floor(cumSolved/total)+1);
+    // ── 계획 기준선(baseline): 밀림 계산용 — 과목/태그 필터와 무관한 '분야 전체' 스코프로 고정
+    //    (필터 토글로 기준선이 리셋되면 밀림·예상회독이 무력화되므로 planBank 사용)
+    const planBank=bank.filter(q=>(_af==='all'||(fieldMap[q.tag||'기타']||getAutoField(q.tag||'기타'))===_af));
+    const planTotal=planBank.length;
+    const planCum=planBank.reduce((s,q)=>s+(q.solve_count||0),0);
+    const planPerDay=Math.max(1, Math.ceil(Math.max(0, planTotal*reviewGoal-planCum)/dday));
+    const baseKey='planBase_'+(_af==='all'?'all':_af);
+    let base=null; try{ base=JSON.parse(localStorage.getItem(baseKey)||'null'); }catch(e){}
+    if(!base || base.examDate!==examDate || base.goal!==reviewGoal || Math.abs((base.total||0)-planTotal)>planTotal*0.1){
+        base={date:todayStr, cum:planCum, examDate:examDate, goal:reviewGoal, total:planTotal, perDay:planPerDay};
+        localStorage.setItem(baseKey, JSON.stringify(base));
+    }
+    const daysSinceBase=Math.max(0, Math.round((new Date(todayStr+'T00:00:00Z')-new Date(base.date+'T00:00:00Z'))/86400000));
+    const expectedThroughYesterday=base.cum + (base.perDay||planPerDay)*daysSinceBase;
+    const actualThroughYesterday=planCum - solved;
+    const deficit=daysSinceBase>0 ? Math.max(0, expectedThroughYesterday-actualThroughYesterday) : 0;
+    // ── 예상 회독: 계획 시작 후 실제 페이스 → 시험일까지 투영 (분야 스코프) ──
+    const daysObserved=daysSinceBase+1;
+    const pace=(planCum-base.cum)/daysObserved;
+    const projectedRounds=planTotal>0 ? (planCum + pace*dday)/planTotal : 0;
+    return {dday, perDay, solved, left:Math.max(0,perDay-solved), done:solved>=perDay, reviewGoal, cumSolved, target, total, unsolved, unsolvedPerDay, progressPct, curRound, remainToSolve, deficit, pace, projectedRounds, daysObserved};
 }
 
 function renderTodayQuotaBar(){
@@ -12228,19 +12092,113 @@ function renderTodayQuotaBar(){
     if(!q){ el.style.display='none'; return; }
     el.style.display='block';
     const pct=Math.min(100, Math.round(q.solved/q.perDay*100));
+    // 회독 단계 색: 1회독 파랑 → 2회독 초록 → 3회독+ 금색
+    const roundColor = q.curRound>=3 ? '#F59E0B' : q.curRound===2 ? 'var(--success)' : 'var(--primary)';
+    const roundInfo = q.reviewGoal>1
+        ? `<span style="color:${roundColor};font-weight:800">🔄 ${q.curRound}/${q.reviewGoal}회독</span> · 누적 ${q.cumSolved}/${q.target} (${q.progressPct}%)`
+        : `진도 ${q.cumSolved}/${q.total}문제 (${q.progressPct}%)`;
+    const unsolvedInfo = q.unsolved>0
+        ? `<div style="font-size:0.68em;color:var(--text-muted);margin-top:5px">📭 안 푼 ${q.unsolved}개 · 처음 다 풀려면 하루 <b>${q.unsolvedPerDay}</b>개</div>`
+        : `<div style="font-size:0.68em;color:var(--success);margin-top:5px">✅ 모든 문제를 한 번 이상 풀었어요!</div>`;
+    // 🔴 밀림 경고 (계획 기준선 대비 누적 부족분)
+    const deficitLine = q.deficit>=1
+        ? `<div style="font-size:0.7em;color:var(--danger);font-weight:700;margin-top:5px">🔴 계획보다 ${q.deficit}문제 밀렸어요 — 오늘 권장량에 반영했어요</div>` : '';
+    // 🔮 예상 회독 (이틀 이상 관찰 후 표시)
+    let projLine='';
+    if(q.daysObserved>=2 && q.pace>0){
+        const pr=Math.round(q.projectedRounds*10)/10;
+        const ok=pr>=q.reviewGoal;
+        projLine=`<div style="font-size:0.7em;color:${ok?'var(--success)':'var(--warning)'};margin-top:4px">🔮 이 페이스면 시험까지 <b>~${pr}회독</b>${ok?' — 목표 달성 가능!':` (목표 ${q.reviewGoal}회독)`}</div>`;
+    }
+    const courseBtn=`<button onclick="startTodayCourse()" style="width:100%;margin-top:8px;padding:9px;background:${q.done?'var(--bg)':'var(--primary)'};color:${q.done?'var(--text-sub)':'#fff'};border:${q.done?'1.5px solid var(--border)':'none'};border-radius:10px;font-size:0.84em;font-weight:800;cursor:pointer">${q.done?'➕ 추가 학습 (한 번 더)':'▶ 오늘 분량 시작 — 복습→오답→새문제'}</button>`;
     if(q.done){
-        el.innerHTML=`<div style="background:var(--primary-light);border:1px solid var(--success);border-radius:12px;padding:9px 12px;display:flex;align-items:center;justify-content:space-between;gap:8px">
-            <span style="font-size:0.82em;font-weight:800;color:var(--success)">🎉 오늘 목표 달성! (${q.solved}/${q.perDay}문제)</span>
-            <span style="font-size:0.72em;color:var(--text-muted);white-space:nowrap">D-${q.dday}</span></div>`;
+        el.innerHTML=`<div style="background:var(--primary-light);border:1px solid var(--success);border-radius:12px;padding:9px 12px">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+                <span style="font-size:0.82em;font-weight:800;color:var(--success)">🎉 오늘 목표 달성! (${q.solved}/${q.perDay}문제)</span>
+                <span style="font-size:0.72em;color:var(--text-muted);white-space:nowrap">D-${q.dday}</span></div>
+            <div style="font-size:0.68em;color:var(--text-sub);margin-top:5px">${roundInfo}</div>${unsolvedInfo}${projLine}${courseBtn}</div>`;
     } else {
         el.innerHTML=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:9px 12px">
             <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px">
                 <span style="font-size:0.8em;font-weight:700;color:var(--text)">🎯 오늘 <b style="color:var(--primary)">${q.perDay}</b>문제 · ${q.solved} 완료 · <b style="color:var(--danger)">${q.left}문제 남음</b></span>
                 <span style="font-size:0.72em;color:var(--text-muted);white-space:nowrap">D-${q.dday}</span>
             </div>
-            <div style="height:6px;background:var(--border);border-radius:3px;overflow:hidden"><div style="height:100%;width:${pct}%;background:var(--primary);border-radius:3px;transition:width 0.3s"></div></div>
-        </div>`;
+            <div style="height:6px;background:var(--border);border-radius:3px;overflow:hidden"><div style="height:100%;width:${pct}%;background:${roundColor};border-radius:3px;transition:width 0.3s"></div></div>
+            <div style="font-size:0.68em;color:var(--text-sub);margin-top:5px">${roundInfo}</div>${deficitLine}${unsolvedInfo}${projLine}${courseBtn}</div>`;
     }
+}
+
+// ── ▶ 오늘의 코스: 복습→오답(취약과목 우선)→새문제 순으로 오늘 할당량 자동 구성 ──
+function startTodayCourse(){
+    const q=getTodayQuota();
+    if(!q){ showToast('시험일을 먼저 설정해주세요 (현황 탭 🎯 합격 현황)'); return; }
+    const _af=(typeof activeField!=='undefined')?activeField:'all';
+    const visible=qq=>activeTags.has(qq.tag||'기타')&&activeSubjects.has(qq.subject||'미분류(공통)')&&(_af==='all'||(fieldMap[qq.tag||'기타']||getAutoField(qq.tag||'기타'))===_af);
+    const n=q.left>0?q.left:q.perDay;
+    // 과목별 정답률 (오답을 취약 과목부터)
+    const subjAcc={};
+    bank.forEach(qq=>{ if(!visible(qq)||!qq.my_status) return; const s=qq.subject||'미분류(공통)'; if(!subjAcc[s])subjAcc[s]={c:0,t:0}; subjAcc[s].t++; if(qq.my_status==='correct')subjAcc[s].c++; });
+    const accOf=qq=>{ const s=subjAcc[qq.subject||'미분류(공통)']; return s&&s.t>0?s.c/s.t:1; };
+    const picked=[], seen=new Set();
+    const push=i=>{ if(!seen.has(i)&&picked.length<n){ seen.add(i); picked.push(i); } };
+    bank.forEach((qq,i)=>{ if(visible(qq)&&typeof isSRDue==='function'&&isSRDue(qq)) push(i); });                 // ① 복습 due
+    const wrongs=[]; bank.forEach((qq,i)=>{ if(visible(qq)&&qq.my_status==='wrong') wrongs.push(i); });
+    wrongs.sort((a,b)=>accOf(bank[a])-accOf(bank[b])); wrongs.forEach(push);                                      // ② 오답 (취약 우선)
+    bank.forEach((qq,i)=>{ if(visible(qq)&&!qq.my_status) push(i); });                                            // ③ 새 문제
+    if(picked.length<n){ const rest=[]; bank.forEach((qq,i)=>{ if(visible(qq)&&!seen.has(i)) rest.push(i); });
+        rest.sort((a,b)=>(bank[a].solve_count||0)-(bank[b].solve_count||0)); rest.forEach(push); }                // ④ 부족하면 회독(덜 푼 순)
+    if(!picked.length){ showToast('출제할 문제가 없습니다. 범위를 확인해주세요.'); return; }
+    planModeActive=true;
+    planBadgeText='▶ 오늘의 코스 '+picked.length+'문제'; // updateUI가 배지를 유지·렌더 (탭하면 종료)
+    picked.forEach(i=>{ const qq=bank[i]; if(qq.my_status){ qq.prev_status=qq.my_status; qq.prev_ans=qq.my_ans; qq.my_status=null; qq.my_ans=null; } });
+    filteredIndices=picked; currentIndex=0; isShuffleMode=false;
+    saveData(); updateUI(); if(typeof updateBadges==='function') updateBadges();
+    if(typeof closeSettingsSheet==='function') closeSettingsSheet();
+    showToast('▶ 오늘의 코스 '+picked.length+'문제 — 복습→오답→새문제 순!','success');
+    if(typeof iosScrollTop==='function') iosScrollTop();
+}
+
+// ── 📊 주간 학습 그래프 (현황 탭) ──
+function renderWeeklyChart(){
+    const el=document.getElementById('weeklyChartCard'); if(!el) return;
+    const t=new Date(todayStr+'T00:00:00Z'); const days=[];
+    for(let i=6;i>=0;i--){ const d=new Date(t); d.setUTCDate(t.getUTCDate()-i); const ds=d.toISOString().slice(0,10); days.push({ds, dow:'일월화수목금토'[d.getUTCDay()], cnt:heatmapData[ds]||0}); }
+    const max=Math.max(1,...days.map(d=>d.cnt));
+    const total7=days.reduce((s,d)=>s+d.cnt,0);
+    if(total7===0 && !(accuracyHistory2&&accuracyHistory2.length)){ el.style.display='none'; return; }
+    el.style.display='block';
+    const bars=days.map(d=>{ const h=Math.max(2,Math.round(d.cnt/max*44)); const isT=d.ds===todayStr;
+        return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:3px;height:100%">
+            <span style="font-size:0.62em;color:var(--text-sub);font-weight:700">${d.cnt||''}</span>
+            <div style="width:68%;height:${h}px;background:${isT?'var(--primary)':d.cnt>0?'var(--success)':'var(--border)'};border-radius:3px"></div>
+            <span style="font-size:0.62em;color:${isT?'var(--primary)':'var(--text-muted)'};font-weight:${isT?'800':'500'}">${d.dow}</span></div>`; }).join('');
+    let accLine='';
+    try{ const hist=(accuracyHistory2||[]).slice(-7);
+        if(hist.length>=2){ const d=hist[hist.length-1].acc-hist[0].acc;
+            const tr=d>0?`📈 +${d}%p`:d<0?`📉 ${d}%p`:'➡️ 보합';
+            accLine=`<div style="font-size:0.72em;color:var(--text-sub);margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">정답률 추세(최근 ${hist.length}회): <b>${hist[0].acc}% → ${hist[hist.length-1].acc}%</b> ${tr}</div>`; } }catch(e){}
+    el.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:9px"><span style="font-size:0.84em;font-weight:800;color:var(--text)">📊 최근 7일 학습</span><span style="font-size:0.72em;color:var(--text-muted)">총 ${total7}문제</span></div>
+        <div style="display:flex;align-items:flex-end;gap:4px;height:74px">${bars}</div>${accLine}`;
+}
+
+// ── ⌨️ 단축키 도움말 ('?' 키) ──
+function showShortcutHelp(){
+    const ex=document.getElementById('shortcutHelpOverlay'); if(ex){ ex.remove(); return; }
+    const o=document.createElement('div'); o.id='shortcutHelpOverlay';
+    o.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:999998;display:flex;align-items:center;justify-content:center;padding:20px';
+    o.onclick=()=>o.remove();
+    o.innerHTML=`<div style="background:var(--surface);border-radius:18px;padding:20px 22px;max-width:300px;width:100%">
+        <div style="font-weight:800;margin-bottom:12px;color:var(--text)">⌨️ 키보드 단축키</div>
+        <div style="font-size:0.85em;color:var(--text-sub);line-height:2"><b>← →</b> 이전/다음 문제<br><b>1 ~ 4</b> 보기 선택<br><b>Enter / Space</b> 정답 확인 · 카드 뒤집기<br><b>B</b> 북마크<br><b>Esc</b> 자동 이동 취소<br><b>?</b> 이 도움말</div>
+        <div style="font-size:0.72em;color:var(--text-muted);margin-top:10px;text-align:center">아무 곳이나 탭하면 닫혀요</div></div>`;
+    document.body.appendChild(o);
+}
+
+// ── 🌗 자동 다크모드 (19시~7시) ──
+function toggleDarkAuto(cb){
+    localStorage.setItem('darkModeAuto', cb.checked?'on':'off');
+    if(cb.checked){ const h=new Date().getHours(); const want=(h>=19||h<7); if(want!==darkMode) toggleDarkMode(true); showToast('🌗 자동 다크모드 ON — 저녁 7시~아침 7시 어둡게'); }
+    else showToast('자동 다크모드 OFF');
 }
 
 function renderPassStrategy(){
@@ -12260,14 +12218,19 @@ function renderPassStrategy(){
     let ddayHtml;
     if(examDate){
         const dday=Math.ceil((new Date(examDate+'T00:00:00Z')-new Date(todayStr+'T00:00:00Z'))/86400000);
-        const remain=vBank.filter(q=>!q.my_status||q.my_status==='wrong'||isSRDue(q)).length;
         if(dday>0){
-            const perDay=Math.ceil(remain/dday);
+            const _tq=getTodayQuota();
+            const perDay=_tq?_tq.perDay:Math.ceil(vBank.filter(q=>!q.my_status).length/dday);
+            const rg=getReviewGoal();
+            const reviewField=`🔄 <input type="number" min="1" max="20" value="${rg}" onchange="setReviewGoal(this.value)" style="width:40px;font-size:0.78em;padding:3px 4px;border:1px solid var(--border);border-radius:7px;background:var(--bg);color:var(--text);text-align:center"> 회독`;
             ddayHtml=`<div style="display:flex;align-items:flex-end;justify-content:space-between;gap:10px">
                 <div><div style="font-size:0.7em;color:var(--text-sub)">시험까지</div><div style="font-size:1.7em;font-weight:900;color:var(--primary);line-height:1.1">D-${dday}</div></div>
-                <div style="text-align:right"><div style="font-size:0.7em;color:var(--text-sub)">오늘 권장</div><div style="font-size:1.15em;font-weight:800;color:var(--text)">${perDay}문제</div><div style="font-size:0.64em;color:var(--text-muted)">남은 ${remain} ÷ ${dday}일</div></div>
+                <div style="text-align:right"><div style="font-size:0.7em;color:var(--text-sub)">오늘 권장</div><div style="font-size:1.15em;font-weight:800;color:var(--text)">${perDay}문제</div>${_tq?`<div style="font-size:0.64em;color:var(--text-muted)">목표 ${_tq.target}회 · 누적 ${_tq.cumSolved}</div>`:''}</div>
             </div>
-            <div style="margin-top:8px;text-align:right">${dateField}</div>`;
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px">
+                <span style="font-size:0.8em;color:var(--text-sub)">${reviewField}</span>
+                ${dateField}
+            </div>`;
         } else if(dday===0){
             ddayHtml=`<div style="text-align:center;padding:4px 0"><div style="font-size:1.4em;font-weight:900;color:var(--danger)">🎯 오늘이 시험일!</div><div style="font-size:0.8em;color:var(--text-sub);margin-top:2px">그동안 쌓은 실력 다 쏟아붓고 오세요 💪</div></div>
             <div style="margin-top:8px;text-align:right">${dateField}</div>`;
@@ -12281,15 +12244,9 @@ function renderPassStrategy(){
         </div>`;
     }
 
-    // 합격 예측 (최근 모의고사 평균 vs 합격선 60%) — PRO 전용
+    // 합격 예측 (최근 모의고사 평균 vs 합격선 60%)
     let predHtml='';
-    if(!isPro){
-        predHtml=`<div onclick="openPaywall('합격 예측')" style="margin-top:11px;padding-top:11px;border-top:1px solid var(--border);cursor:pointer">
-            <div style="display:flex;justify-content:space-between;align-items:center;font-size:0.78em;margin-bottom:5px"><span style="color:var(--text-sub)">🎯 합격 예측</span><span style="color:#f59e0b;font-weight:800">💎 PRO</span></div>
-            <div style="position:relative;height:9px;background:var(--border);border-radius:5px;overflow:hidden;filter:blur(2.5px)"><div style="height:100%;width:62%;background:var(--success);border-radius:5px"></div></div>
-            <div style="font-size:0.72em;color:#f59e0b;margin-top:6px;text-align:center;font-weight:700">합격선 대비 내 위치·합격확률 추세 보기 →</div>
-        </div>`;
-    } else if(typeof mockHistory!=='undefined' && mockHistory.length>0){
+    if(typeof mockHistory!=='undefined' && mockHistory.length>0){
         const recent=mockHistory.slice(0,3);
         const avg=Math.round(recent.reduce((a,h)=>a+(h.acc||0),0)/recent.length);
         const PASS=60, color=avg>=PASS?'var(--success)':avg>=PASS-10?'var(--warning)':'var(--danger)';
@@ -12793,6 +12750,182 @@ const _origRenderMiniDashboard = typeof renderMiniDashboard === 'function' ? ren
   window.drillBack=function(){ ddStep=1; ddField=null; renderDrill(); };
   window.addEventListener('load',()=>{ setTimeout(()=>{ try{ if(typeof bank!=='undefined'&&bank.length) showDrilldown(); }catch(e){} },700); });
 })();
+</script>
+
+<div id="hmPaywallModal" class="modal-overlay" onclick="if(event.target===this)closePaywall()" style="display:none">
+    <div class="modal-box" style="max-width:440px">
+        <div class="modal-header">
+            <h3 class="modal-title">💎 합격마스터 PRO</h3>
+            <button class="modal-close" onclick="closePaywall()">닫기</button>
+        </div>
+        <div id="hmPaywallCtx" style="text-align:center;font-weight:800;font-size:1.05em;margin:6px 0 12px;color:var(--primary)">PRO로 더 빠르게 합격하세요 💎</div>
+        <div style="font-size:0.8em;color:var(--text-sub);text-align:center;margin-bottom:14px;line-height:1.6">기출문제 풀이는 <b>계속 무료</b>예요.<br>아래 기능만 PRO로 열려요.</div>
+        <div id="hmFeatureList" style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px"></div>
+        <button onclick="hmBuyPro()" style="width:100%;padding:14px;background:var(--primary);color:#fff;border:none;border-radius:12px;font-size:1em;font-weight:800;cursor:pointer">PRO 시작하기 · <span id="hmPriceLabel">월 ₩3,900</span></button>
+        <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">
+            <div style="font-size:0.78em;color:var(--text-sub);margin-bottom:7px">이미 구매하셨나요? 라이선스 키 입력</div>
+            <div style="display:flex;gap:7px">
+                <input id="hmKeyInput" type="text" placeholder="HMPRO-XXXXX-XXXX" autocomplete="off" style="flex:1;padding:11px;border:1.5px solid var(--border);border-radius:10px;background:var(--bg);color:var(--text);font-size:0.85em">
+                <button onclick="hmSubmitKey()" style="padding:11px 16px;background:var(--success);color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;white-space:nowrap">활성화</button>
+            </div>
+            <div id="hmLicenseStatus" style="font-size:0.74em;color:var(--text-muted);margin-top:8px;text-align:center"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+/* ============================================================
+   💎 합격마스터 PRO — 기능 게이팅 / 라이선스  (Model A: 기출 무료, 기능 유료)
+   결제 추상화 — 오프라인 체크섬 키 즉시작동 + Gumroad/Lemon Squeezy 라이선스 API 훅(이지님 계정 후)
+   ⚠️ 클라이언트 라이선스는 '정직한 사용자' 보호 수준 — 강한 보호는 서버 검증 필요
+============================================================ */
+const HM_PRO = {
+    PRICE_LABEL: '월 ₩3,900',
+    CHECKOUT_URL: '',           // 이지님: Lemon Squeezy 결제링크 (Product→Share→Checkout URL). 비면 "준비중"
+    LS: { enabled: false },     // 이지님: LS 스토어 연결 후 enabled:true → 라이선스 키 API 검증 활성화
+    KEY_PREFIX: 'HMPRO-',
+    KEY_SALT: 'hapgyeok-master-pro-2026',
+    FREE_MOCK_PER_DAY: 1,       // 무료: 하루 모의고사 1회
+    FEATURES: [
+        ['🤖','AI 해설·오답분석','틀린 이유를 짚어주는 실시간 AI 튜터'],
+        ['📝','무제한 모의고사','실전 모드 무제한 (무료는 하루 1회)'],
+        ['🚀','앞으로의 모든 PRO 신기능','합격예측·리포트 등 업데이트 포함'],
+    ],
+        ['📝','무제한 모의고사','실전 모드 · 과목별 배분 (무료는 하루 1회)'],
+        ['🎯','합격 예측','합격선 대비 내 위치 · 합격 확률 추세'],
+        ['☁️','클라우드 동기화','폰 ↔ PC 자동 — 어디서든 이어서'],
+        ['🚫','광고 없음','깔끔한 학습에 집중'],
+    ],
+};
+let hmLicense = (function(){ try{ return JSON.parse(localStorage.getItem('hmLicense_v1')||'null'); }catch(e){ return null; } })();
+let isPro = !!(hmLicense && hmLicense.pro);
+
+function _hmHash(s){
+    let h = 2166136261;
+    for(let i=0;i<s.length;i++){ h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+    return (h>>>0).toString(36).toUpperCase().padStart(7,'0').slice(0,7);
+}
+function _hmValidateKey(key){
+    key = (key||'').trim().toUpperCase();
+    if(!key.startsWith(HM_PRO.KEY_PREFIX)) return false;
+    const parts = key.slice(HM_PRO.KEY_PREFIX.length).split('-');
+    if(parts.length < 2) return false;
+    const checksum = parts.pop();
+    const payload = parts.join('-');
+    if(payload.length < 4) return false;
+    return _hmHash(payload + HM_PRO.KEY_SALT) === checksum;
+}
+// 이지님용 키 생성: 브라우저 콘솔에서 hmGenerateKey('BUYER01') 실행 → 판매/배포용 키
+function hmGenerateKey(payload){
+    payload = (payload||('U'+Date.now().toString(36))).toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,10);
+    return HM_PRO.KEY_PREFIX + payload + '-' + _hmHash(payload + HM_PRO.KEY_SALT);
+}
+function hmSaveLicense(){
+    try{ localStorage.setItem('hmLicense_v1', JSON.stringify(hmLicense)); }catch(e){}
+    isPro = !!(hmLicense && hmLicense.pro);
+}
+async function activateLicense(key){
+    key = (key||'').trim();
+    if(!key) return { ok:false, msg:'라이선스 키를 입력해주세요.' };
+    // 1) Lemon Squeezy 라이선스 API (스토어 연결 시) — 라이선스 키 자체로 인증, 시크릿 불필요(클라이언트 안전)
+    if(HM_PRO.LS && HM_PRO.LS.enabled){
+        const r = await _hmLSActivate(key);
+        if(r.ok){
+            hmLicense = { pro:true, key:key.trim(), plan:'lemonsqueezy', instanceId:r.instanceId, activatedAt:Date.now() };
+            hmSaveLicense(); hmReflectProUI();
+            return { ok:true, msg:'🎉 PRO 활성화 완료! 모든 기능이 열렸어요.' };
+        }
+        // LS 실패 → 오프라인/수동 키도 시도(베타·지인 키 허용)
+    }
+    // 2) 오프라인 체크섬 키 (백엔드 없이 즉시 발급 — 초기 수동/베타 판매)
+    if(_hmValidateKey(key)){
+        hmLicense = { pro:true, key:key.trim().toUpperCase(), plan:'standard', activatedAt:Date.now() };
+        hmSaveLicense(); hmReflectProUI();
+        return { ok:true, msg:'🎉 PRO 활성화 완료! 모든 기능이 열렸어요.' };
+    }
+    return { ok:false, msg:'유효하지 않은 키예요. 구매 영수증의 키를 다시 확인해주세요.' };
+}
+// ── Lemon Squeezy License API (브라우저 직접 호출 — 라이선스 키로 인증) ──
+async function _hmLSActivate(key){
+    try{
+        const res = await fetch('https://api.lemonsqueezy.com/v1/licenses/activate', {
+            method:'POST', headers:{ 'Accept':'application/json','Content-Type':'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({ license_key:key, instance_name:'hapgyeok-'+((navigator.platform||'web').slice(0,12)) })
+        });
+        const d = await res.json();
+        if(d && d.activated && d.instance) return { ok:true, instanceId:d.instance.id };
+        return { ok:false, msg:(d && d.error) || '활성화 실패' };
+    }catch(e){ return { ok:false, msg:'네트워크 오류' }; }
+}
+async function _hmLSValidate(key, instanceId){
+    try{
+        const res = await fetch('https://api.lemonsqueezy.com/v1/licenses/validate', {
+            method:'POST', headers:{ 'Accept':'application/json','Content-Type':'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({ license_key:key, instance_id:instanceId })
+        });
+        const d = await res.json();
+        return !!(d && d.valid && d.license_key && d.license_key.status==='active');
+    }catch(e){ return true; }  // 오프라인/네트워크 오류 시 PRO 유지(관대)
+}
+// 앱 시작 시 LS 구독 상태 재확인 (만료·취소 반영)
+async function hmRevalidate(){
+    if(hmLicense && hmLicense.plan==='lemonsqueezy' && hmLicense.instanceId && HM_PRO.LS && HM_PRO.LS.enabled){
+        const ok = await _hmLSValidate(hmLicense.key, hmLicense.instanceId);
+        if(!ok) deactivatePro();
+    }
+}
+function deactivatePro(){ hmLicense=null; hmSaveLicense(); hmReflectProUI(); if(typeof showToast==='function') showToast('PRO를 해제했어요.'); }
+
+// 게이트: PRO 필요. true=통과, false=페이월
+function requirePro(featureName){ if(isPro) return true; openPaywall(featureName||''); return false; }
+// 무료 모의고사 일일 제한
+function hmCanMock(){
+    if(isPro) return true;
+    const today=(new Date()).toISOString().slice(0,10);
+    let rec; try{ rec=JSON.parse(localStorage.getItem('hmMockQuota_v1')||'{}'); }catch(e){ rec={}; }
+    return !(rec.date===today && (rec.count||0) >= HM_PRO.FREE_MOCK_PER_DAY);
+}
+function hmRecordMock(){
+    if(isPro) return;
+    const today=(new Date()).toISOString().slice(0,10);
+    let rec; try{ rec=JSON.parse(localStorage.getItem('hmMockQuota_v1')||'{}'); }catch(e){ rec={}; }
+    if(rec.date!==today) rec={date:today,count:0};
+    rec.count=(rec.count||0)+1;
+    localStorage.setItem('hmMockQuota_v1', JSON.stringify(rec));
+}
+function hmReflectProUI(){
+    document.querySelectorAll('.hm-pro-only').forEach(el=>{ el.style.display = isPro?'':'none'; });
+    document.querySelectorAll('.hm-free-only').forEach(el=>{ el.style.display = isPro?'none':''; });
+    const badge=document.getElementById('hmProBadge'); if(badge) badge.style.display = isPro?'inline-flex':'none';
+    const st=document.getElementById('hmLicenseStatus');
+    if(st) st.innerHTML = isPro ? '💎 <b>PRO</b> 활성화됨' : '무료 플랜';
+    try{ if(typeof renderPassStrategy==='function') renderPassStrategy(); }catch(e){}
+}
+function openPaywall(feature){
+    const m=document.getElementById('hmPaywallModal'); if(!m) return;
+    const c=document.getElementById('hmPaywallCtx');
+    if(c) c.textContent = feature ? (feature+' — PRO 기능이에요 💎') : 'PRO로 더 빠르게 합격하세요 💎';
+    const fl=document.getElementById('hmFeatureList');
+    if(fl && !fl.dataset.built){
+        fl.innerHTML = HM_PRO.FEATURES.map(f=>`<div style="display:flex;gap:10px;align-items:flex-start"><div style="font-size:1.15em;line-height:1.3">${f[0]}</div><div><div style="font-weight:700;font-size:0.88em">${f[1]}</div><div style="font-size:0.75em;color:var(--text-sub)">${f[2]}</div></div></div>`).join('');
+        fl.dataset.built='1';
+    }
+    const pl=document.getElementById('hmPriceLabel'); if(pl) pl.textContent=HM_PRO.PRICE_LABEL;
+    m.style.display='flex';
+}
+function closePaywall(){ const m=document.getElementById('hmPaywallModal'); if(m) m.style.display='none'; }
+function hmBuyPro(){
+    if(HM_PRO.CHECKOUT_URL){ window.open(HM_PRO.CHECKOUT_URL,'_blank'); }
+    else if(typeof showToast==='function'){ showToast('💳 결제가 곧 열려요! 키가 있으면 아래에 입력해 주세요.','warning'); }
+}
+async function hmSubmitKey(){
+    const inp=document.getElementById('hmKeyInput');
+    const r=await activateLicense(inp?inp.value:'');
+    if(typeof showToast==='function') showToast(r.msg, r.ok?'success':'warning');
+    if(r.ok && inp){ inp.value=''; closePaywall(); }
+}
+
+try{ hmReflectProUI(); }catch(e){}
 </script>
 </body>
 </html>

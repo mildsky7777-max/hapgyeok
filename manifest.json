@@ -1,7 +1,7 @@
 {
-  "name": "합격마스터 — 산업안전기사 기출",
+  "name": "합격마스터 — 자격증 학습",
   "short_name": "합격마스터",
-  "description": "광고 없는 산업안전기사 기출 학습 — 간격반복·모의고사·AI 오답분석",
+  "description": "자격증 기출 학습 앱 — 간격반복·모의고사·합격 전략",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
